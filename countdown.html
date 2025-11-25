@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="ar">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Countdown - Birthday Surprise</title>
+  <style>
+    /* Reset & base */
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Poppins, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    body{background:linear-gradient(180deg,#071124 0%, #02040a 100%); color:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
+
+    /* fullscreen app */
+    .wrap{width:100vw;height:100vh;padding:36px;display:flex;align-items:center;justify-content:center}
+
+    /* card */
+    .card{width:min(920px,96%);max-width:1100px;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));border-radius:18px;padding:42px;backdrop-filter: blur(6px);box-shadow:0 10px 40px rgba(0,0,0,0.7);position:relative;overflow:hidden}
+
+    /* spark */
+    .spark{position:absolute;left:28px;top:-34px;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#ffd6f0,#ffd2b8);filter:blur(10px);opacity:0.85;transform-origin:center;animation:float 3.8s ease-in-out infinite}
+    @keyframes float{0%{transform:translateY(0) rotate(0)}50%{transform:translateY(-8px) rotate(6deg)}100%{transform:translateY(0) rotate(0)}}
+
+    h1{margin:0 0 6px;font-size:20px;font-weight:700;text-align:center}
+    p.lead{margin:0 0 18px;color:#e6eefc;opacity:0.95;text-align:center}
+
+    /* pre-msg (sweet sentence) */
+    .pre-msg{font-size:16px;text-align:center;margin-bottom:18px;color:#dbeafe}
+
+    /* countdown digits */
+    .countdown{display:flex;gap:14px;justify-content:center;margin:8px 0}
+    .unit{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:16px 18px;border-radius:14px;min-width:86px;box-shadow:inset 0 -6px 18px rgba(0,0,0,0.35)}
+    .num{font-size:40px;font-weight:800;letter-spacing:1px}
+    .label{font-size:12px;color:#cbd5e1;margin-top:6px}
+
+    /* loading/progress */
+    .loading{margin-top:18px;height:10px;background:rgba(255,255,255,0.03);border-radius:999px;overflow:hidden}
+    .loading .bar{height:100%;width:0%;background:linear-gradient(90deg,#ffb4d2,#ffd6a5);transition:width 0.25s linear}
+
+    /* caption */
+    .caption{margin-top:16px;color:#cbd5e1;font-size:14px;text-align:center}
+
+    /* balloons - multiple floating elements */
+    .balloons{position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none}
+    .balloon{position:absolute;border-radius:50%;opacity:0.95;transform-origin:center;animation:balloonFloat linear infinite}
+    .balloon.b1{background:#ffb4d2;width:44px;height:44px;left:6%;top:70%;animation-duration:9s}
+    .balloon.b2{background:#ffd6a5;width:36px;height:36px;left:18%;top:78%;animation-duration:12s}
+    .balloon.b3{background:#cbd6ff;width:48px;height:48px;left:30%;top:68%;animation-duration:10s}
+    .balloon.b4{background:#ffd6a5;width:30px;height:30px;left:75%;top:82%;animation-duration:11s}
+    .balloon.b5{background:#ffb4d2;width:38px;height:38px;left:86%;top:72%;animation-duration:13s}
+    @keyframes balloonFloat{0%{transform:translateY(0) scale(0.98)}50%{transform:translateY(-120px) scale(1.03)}100%{transform:translateY(0) scale(0.98)}}
+
+    /* hidden until reveal */
+    .hidden{display:none}
+
+    /* loader overlay */
+    .loader-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg, rgba(2,6,23,0.92), rgba(2,6,23,0.98));z-index:9999}
+    .loader{display:flex;flex-direction:column;align-items:center;gap:18px}
+    .dots{display:flex;gap:10px}
+    .dot{width:14px;height:14px;border-radius:50%;background:#fff;opacity:0.95;transform:scale(0.6);animation:pop 1s infinite}
+    .dot:nth-child(2){animation-delay:0.12s}
+    .dot:nth-child(3){animation-delay:0.24s}
+    @keyframes pop{0%{transform:scale(0.6);opacity:0.4}50%{transform:scale(1.1);opacity:1}100%{transform:scale(0.6);opacity:0.4}}
+
+    /* transition overlay before redirect */
+    .transition-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg, rgba(1,3,12,0.9), rgba(1,3,12,0.95));z-index:9998;opacity:0;pointer-events:none;transition:opacity 700ms ease}
+    .transition-overlay.show{opacity:1;pointer-events:auto}
+    .transition-overlay .message{color:#fff;font-size:20px;font-weight:700}
+
+    /* rtl root */
+    :root{direction:rtl}
+
+    @media (max-width:520px){.unit{min-width:56px;padding:10px 12px}.num{font-size:28px}}
+  </style>
+</head>
+<body>
+
+  <!-- Loader before the app appears -->
+  <div id="loader" class="loader-overlay" aria-hidden="false">
+    <div class="loader">
+      <div class="dots">
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+      <div style="color:#fff;font-weight:600">Loading the surprise…</div>
+    </div>
+  </div>
+
+  <!-- Transition overlay shown just before redirect/open -->
+  <div id="transition" class="transition-overlay" aria-hidden="true">
+    <div class="message">Here we go — opening your surprise…</div>
+  </div>
+
+  <!-- Main app (hidden until loader finishes) -->
+  <div class="wrap" id="app" style="display:none">
+    <div class="card" role="dialog" aria-labelledby="title" aria-describedby="caption">
+      <div class="spark" aria-hidden></div>
+      <div class="balloons" aria-hidden>
+        <div class="balloon b1"></div>
+        <div class="balloon b2"></div>
+        <div class="balloon b3"></div>
+        <div class="balloon b4"></div>
+        <div class="balloon b5"></div>
+      </div>
+
+      <h1 id="title">Something lovely is on its way…</h1>
+      <p class="lead">Hold on for a little moment — a surprise is waiting.</p>
+
+      <div class="pre-msg" id="preMsg">A gentle note: you are loved more than words can show.</div>
+
+      <div class="countdown" role="timer" aria-live="polite">
+        <div class="unit">
+          <div class="num" id="days">00</div>
+          <div class="label">يوم</div>
+        </div>
+        <div class="unit">
+          <div class="num" id="hours">00</div>
+          <div class="label">ساعة</div>
+        </div>
+        <div class="unit">
+          <div class="num" id="minutes">00</div>
+          <div class="label">دقيقة</div>
+        </div>
+        <div class="unit">
+          <div class="num" id="seconds">00</div>
+          <div class="label">ثانية</div>
+        </div>
+      </div>
+
+      <div class="loading" aria-hidden>
+        <div class="bar" id="progress"></div>
+      </div>
+
+      <div class="caption" id="caption">Stay tuned — your message will appear when the timer finishes.</div>
+
+      <!-- hidden container for the birthday content (kept empty because we redirect/open) -->
+      <div id="reveal" class="hidden" style="margin-top:18px"></div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      // -------------------- CONFIG --------------------
+      // mode: 'test' for quick 5-minute demo, 'date' for real birthday countdown
+      // change this string to switch modes
+      const MODE = 'test'; // 'test' | 'date'
+
+      // If MODE === 'test' -> uses TEST_DURATION_MS below
+      const TEST_DURATION_MS = 5 * 60 * 1000; // 5 minutes for quick demo
+
+      // If MODE === 'date' -> uses TARGET_DATE (local time)
+      // Birthday set to December 2, 2025 at 00:00 local time
+      const TARGET_DATE = '2025-12-02T00:00:00';
+
+      // Redirect/open target when countdown finishes
+      // Set to a filename (relative) or a fully qualified URL like 'https://example.com/birthday.html'
+      let redirectTarget = 'index.html'; // <-- change this to where you want to open
+
+      // If true opens in new tab (window.open), otherwise replaces current page (window.location.href)
+      const openInNewTab = false;
+
+      // Loader visible time (ms) before showing countdown card
+      const LOADER_MS = 800;
+
+      // Transition overlay time before redirect (ms)
+      const TRANSITION_MS = 900;
+      // ------------------ end CONFIG ------------------
+
+      const loader = document.getElementById('loader');
+      const app = document.getElementById('app');
+      const transition = document.getElementById('transition');
+
+      const daysEl = document.getElementById('days');
+      const hoursEl = document.getElementById('hours');
+      const minutesEl = document.getElementById('minutes');
+      const secondsEl = document.getElementById('seconds');
+      const progress = document.getElementById('progress');
+      const title = document.getElementById('title');
+      const caption = document.getElementById('caption');
+      const preMsg = document.getElementById('preMsg');
+
+      // compute target time depending on mode
+      let start = Date.now();
+      let target = start + TEST_DURATION_MS; // default
+      if(MODE === 'date'){
+        // parse target date as local time
+        target = new Date(TARGET_DATE).getTime();
+      }
+
+      // show loader briefly, then show app
+      setTimeout(()=>{
+        loader.style.display = 'none';
+        app.style.display = '';
+      }, LOADER_MS);
+
+      // progress bar logic: if test mode use elapsed fraction, else use time-to-target fraction (countdown fine)
+      const totalSpan = (MODE === 'test') ? (TEST_DURATION_MS) : Math.max(1, target - Date.now());
+      start = Date.now(); // reset start to when we actually show the app
+
+      function msToTime(ms){
+        const totalSeconds = Math.floor(ms/1000);
+        const s = totalSeconds % 60;
+        const m = Math.floor(totalSeconds/60) % 60;
+        const h = Math.floor(totalSeconds/3600) % 24;
+        const d = Math.floor(totalSeconds/86400);
+        return {d,h,m,s};
+      }
+
+      function update(){
+        const now = Date.now();
+        const diff = Math.max(0, target - now);
+        const t = msToTime(diff);
+
+        daysEl.textContent = String(t.d).padStart(2,'0');
+        hoursEl.textContent = String(t.h).padStart(2,'0');
+        minutesEl.textContent = String(t.m).padStart(2,'0');
+        secondsEl.textContent = String(t.s).padStart(2,'0');
+
+        // progress calculation: how much time has elapsed since start relative to totalSpan
+        const elapsed = now - start;
+        const pct = Math.min(100, Math.max(0, Math.round((elapsed / totalSpan) * 100)));
+        progress.style.width = pct + '%';
+
+        // subtle updates to preMsg text while counting
+        if(diff > 1000*60*60*24){
+          preMsg.textContent = 'Something special is waiting just for you.';
+        } else if(diff > 1000*60*60){
+          preMsg.textContent = 'Soon — we are getting closer.';
+        } else if(diff > 1000*60){
+          preMsg.textContent = 'Just a few more minutes — hold tight.';
+        } else {
+          preMsg.textContent = 'Almost there…';
+        }
+
+        if(diff <= 0){
+          clearInterval(timerInterval);
+          onFinish();
+        }
+      }
+
+      function onFinish(){
+        // show transition overlay then open/redirect
+        transition.classList.add('show');
+        setTimeout(()=>{
+          try{
+            if(openInNewTab){
+              window.open(redirectTarget, '_blank');
+            } else {
+              window.location.href = redirectTarget;
+            }
+          }catch(e){
+            // fallback: reveal a message in the card
+            transition.classList.remove('show');
+            caption.textContent = 'Could not open the surprise automatically. Click here.';
+            const r = document.getElementById('reveal');
+            r.classList.remove('hidden');
+            r.innerHTML = `<a href="${redirectTarget}" style="color:#ffd6a5">Open the surprise</a>`;
+          }
+        }, TRANSITION_MS);
+      }
+
+      // start timer
+      update();
+      const timerInterval = setInterval(update, 250);
+
+      // accessibility: allow pressing space to finish (dev/test)
+      window.addEventListener('keydown', e=>{ if(e.code === 'Space'){ clearInterval(timerInterval); onFinish(); } });
+
+      // expose a small API for debugging from console
+      window.__COUNTDOWN = { setMode(m){ location.reload(); }, MODE, TARGET_DATE };
+
+    })();
+  </script>
+</body>
+</html>
